@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>登岳阳楼·诗圣之路</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft YaHei",sans-serif}
+body{
+background:#fef8e9;
+min-height:100vh;
+display:flex;justify-content:center;align-items:center;
+padding:20px;
+}
+.main{
+background:white;
+width:100%;max-width:520px;
+padding:35px 30px;
+border-radius:16px;
+box-shadow:0 8px 30px rgba(0,0,0,0.08);
+border:1px solid #f2e6c8;
+}
+.title{
+text-align:center;
+font-size:26px;
+color:#8c5c3d;
+margin-bottom:8px;
+font-weight:bold;
+}
+.level{
+text-align:center;background:#fcf0e0;color:#8c5c3d;padding:8px 16px;border-radius:30px;
+width:fit-content;margin:0 auto 16px;font-weight:bold;
+}
+.story{
+background:#f7f2ec;padding:14px;border-radius:12px;
+margin:10px 0;line-height:1.5;color:#5a4b42;border-left:4px solid #e6b590;
+}
+.question{font-size:16px;margin:14px 0}
+.option{
+background:#f7f2ec;padding:12px;border-radius:12px;
+margin:8px 0;cursor:pointer;border:1px solid #f0e3d5;
+}
+.option:hover{background:#fce8d8}
+.msg{padding:10px;border-radius:8px;margin:10px 0;font-weight:bold;text-align:center}
+.right{background:#e6f4e9;color:#3e8e57}
+.wrong{background:#fee;color:#c95e5a}
+.btn{
+background:#d2a679;color:#fff;padding:12px;border:none;border-radius:12px;
+font-weight:bold;cursor:pointer;width:100%;margin-top:8px
+}
+.btn.gray{background:#b6c199}
+.end{text-align:center;padding:20px 0}
+.end h2{color:#8c5c3d;margin-bottom:16px}
+
+/* 九宫格 */
+.answer-box{
+background:#fff;border:1px solid #e0d5bc;padding:12px;border-radius:12px;
+text-align:center;min-height:46px;line-height:46px;margin-bottom:16px;
+}
+.grid{
+display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;
+}
+.grid-item{
+background:#fcf0e0;border:1px solid #e0d5bc;
+height:64px;display:flex;align-items:center;justify-content:center;
+font-size:20px;border-radius:12px;cursor:pointer;
+}
+
+/* 打地鼠 */
+.hammer-area{
+position:relative;width:100%;height:260px;background:#fcf0e0;border-radius:16px;
+border:1px solid #e0d5bc;margin-bottom:16px;
+}
+.hole{
+position:absolute;width:52px;height:52px;background:#e0d5bc;border-radius:50%;
+display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:bold;
+color:#3d3a35;cursor:pointer;transition:all 0.3s;
+}
+.hole.show{transform:translateY(-15px);background:#fce8d8;color:#8c5c3d}
+
+/* Emoji */
+.emoji-area{text-align:center;font-size:44px;margin:20px 0;letter-spacing:10px}
+.input-area{
+width:100%;padding:14px 16px;font-size:16px;border:1px solid #e0d5bc;
+border-radius:10px;outline:none;margin-bottom:16px;text-align:center;
+}
+.btn-group{display:flex;gap:10px;margin-bottom:20px}
+button{flex:1;padding:12px;border:none;border-radius:10px;font-size:15px}
+.btn-submit{background:#d2a679;color:white}
+.btn-next{background:#b6c199;color:white}
+.result{text-align:center;font-size:15px;margin-top:10px}
+.correct{color:#6b9b6d;font-weight:bold}
+.wrong{color:#c95d63}
+.score{text-align:center;margin-top:15px;color:#8c5c3d}
+
+.start-page{text-align:center;padding:40px 0}
+.start-page p{margin:20px 0;font-size:16px;color:#997a65}
+.hide{display:none}
+</style>
+</head>
+<body>
+<div class="main" id="app"></div>
+
+<script>
+// 关卡顺序：九宫格(上下联四句) → 打地鼠 → Emoji → 5道深度选择题
+const stages = [
+  {type:"jiugongge",name:"九宫格拼诗"},
+  {type:"whack",name:"打地鼠炼字",desc:"点击正确字，完成：吴楚东南__",correct:"坼",words:["坼","拆","折","诉"]},
+  {type:"emoji",name:"Emoji猜诗词"},
+  {type:"quiz",name:"深度知识题",list:[
+    {q:"《登岳阳楼》中最能体现杜甫忧国忧民的一句是？",opts:["戎马关山北，凭轩涕泗流","亲朋无一字，老病有孤舟","吴楚东南坼，乾坤日夜浮"],ans:0},
+    {q:"“吴楚东南坼，乾坤日夜浮”的艺术手法是？",opts:["夸张与想象","对比与反衬","拟人与象征"],ans:0},
+    {q:"杜甫的诗被称为？",opts:["诗史","诗仙","诗鬼"],ans:0},
+    {q:"“亲朋无一字，老病有孤舟”表现了诗人的？",opts:["身世孤苦与漂泊","闲适与自在","豪迈与进取"],ans:0},
+    {q:"《登岳阳楼》创作于杜甫的什么时期？",opts:["晚年漂泊时期","青年漫游时期","长安为官时期"],ans:0}
+  ]}
+];
+
+// 九宫格上下联4题
+const jiuLevels = [
+  {tip:"拼出：今上岳阳楼 的上联",target:"昔闻洞庭水",chars:['昔','闻','洞','庭','水','今','岳','阳','楼']},
+  {tip:"拼出：吴楚东南坼 的下联",target:"乾坤日夜浮",chars:['乾','坤','日','夜','浮','吴','楚','东','坼']},
+  {tip:"拼出：凭轩涕泗流 的上联",target:"戎马关山北",chars:['戎','马','关','山','北','凭','轩','涕','泗']},
+  {tip:"拼出：亲朋无一字 的下联",target:"老病有孤舟",chars:['老','病','有','孤','舟','亲','朋','无','一']}
+];
+
+// Emoji题库
+const questions = [
+  { emoji: "📜🌊", ans: "昔闻洞庭水" },
+  { emoji: "📍🏯", ans: "今上岳阳楼" },
+  { emoji: "🌊⛰️✂️", ans: "吴楚东南坼" },
+  { emoji: "🌍☀️🌙", ans: "乾坤日夜浮" },
+  { emoji: "🏠📜💧", ans: "亲朋无一字" },
+  { emoji: "⚓🧓🏥", ans: "老病有孤舟" },
+  { emoji: "🐎🛡️😭", ans: "戎马关山北" },
+  { emoji: "🏞️💧🏯", ans: "凭轩涕泗流" }
+];
+questions.sort(() => Math.random() - 0.5);
+
+let currentStage = 0;
+let jiuIndex = 0;
+let quizIndex = 0;
+let selected = [];
+let timer;
+let emojiIndex = 0;
+let score = 0;
+
+// 开始页
+function showStart(){
+  app.innerHTML = `
+  <div class="start-page">
+    <div class="title">登岳阳楼·诗圣之路</div>
+    <p>欢迎来到诗词闯关，一起感受杜甫的家国情怀</p>
+    <button class="btn" onclick="render()">开启诗圣之路</button>
+  </div>
+  `;
+}
+
+function render(){
+  let s = stages[currentStage];
+  if(s.type === "jiugongge") renderJiu();
+  if(s.type === "whack") renderWhack(s);
+  if(s.type === "emoji") renderEmoji();
+  if(s.type === "quiz") renderQuiz();
+}
+
+// 九宫格（答错自动清空）
+function renderJiu(){
+  let level = jiuLevels[jiuIndex];
+  selected = [];
+  app.innerHTML = `
+  <div class="title">九宫格拼诗</div>
+  <div class="level">第${currentStage+1}关｜${stages[currentStage].name}</div>
+  <div class="story">${level.tip}</div>
+  <div class="answer-box" id="ans">请拼字</div>
+  <div class="grid" id="g"></div>
+  <button class="btn" onclick="chkJiu()">提交</button>
+  <div id="msg"></div>
+  `;
+  let arr = [...level.chars].sort(()=>Math.random()-0.5);
+  arr.forEach(c=>{
+    let d = document.createElement("div");
+    d.className = "grid-item";
+    d.innerText = c;
+    d.onclick = ()=>{
+      if(selected.length < level.target.length){
+        selected.push(c);
+        document.getElementById("ans").innerText = selected.join("");
+      }
+    }
+    document.getElementById("g").appendChild(d);
+  })
+}
+function chkJiu(){
+  let level = jiuLevels[jiuIndex];
+  let v = selected.join("");
+  let m = document.getElementById("msg");
+  if(v === level.target){
+    m.className = "msg right";
+    m.innerText = "✅ 正确！";
+    jiuIndex++;
+    if(jiuIndex >= jiuLevels.length){
+      setTimeout(nextStage,1200);
+    }else{
+      setTimeout(renderJiu,1200);
+    }
+  }else{
+    m.className = "msg wrong";
+    m.innerText = "❌ 再试一次！";
+    // —————— BUG修复：答错清空答案 ——————
+    selected = [];
+    document.getElementById("ans").innerText = "请拼字";
+  }
+}
+
+// 打地鼠
+function renderWhack(s){
+  clearInterval(timer);
+  app.innerHTML = `
+  <div class="title">打地鼠炼字</div>
+  <div class="level">第${currentStage+1}关｜${s.name}</div>
+  <div class="story">${s.desc}</div>
+  <div class="hammer-area" id="holes"></div>
+  <div id="msg"></div>
+  `;
+  let pos = [
+    {top:"30px",left:"15%"},{top:"30px",left:"42%"},{top:"30px",left:"70%"},
+    {top:"150px",left:"28%"},{top:"150px",left:"57%"}
+  ];
+  let wrap = document.getElementById("holes");
+  pos.forEach(p=>{
+    let d = document.createElement("div");
+    d.className = "hole";
+    d.style.top = p.top; d.style.left = p.left;
+    wrap.appendChild(d);
+  });
+  timer = setInterval(()=>{
+    let all = document.querySelectorAll(".hole");
+    all.forEach(h=>h.classList.remove("show"));
+    let r = Math.floor(Math.random()*all.length);
+    let w = s.words[Math.floor(Math.random()*s.words.length)];
+    let t = all[r];
+    t.innerText = w;
+    t.classList.add("show");
+    t.onclick = ()=>{
+      if(w === s.correct){
+        clearInterval(timer);
+        document.getElementById("msg").className = "msg right";
+        document.getElementById("msg").innerText = "✅ 正确！即将进入下一关";
+        setTimeout(nextStage,1400);
+      }else{
+        document.getElementById("msg").className = "msg wrong";
+        document.getElementById("msg").innerText = "❌ 再试！";
+      }
+    }
+  },800);
+}
+
+// Emoji
+function renderEmoji(){
+  app.innerHTML = `
+  <div class="title">登岳阳楼 · 诗词猜谜</div>
+  <div class="level">第${currentStage+1}关｜Emoji猜诗</div>
+  <div class="story">根据表情猜《登岳阳楼》诗句</div>
+  <div class="emoji-area" id="emojiBox"></div>
+  <input type="text" class="input-area" id="answerInput" placeholder="输入答案">
+  <div class="btn-group">
+    <button class="btn-submit" onclick="checkAnswer()">提交答案</button>
+    <button class="btn-next" onclick="nextQuestion()">下一题</button>
+  </div>
+  <div class="result" id="resultTip"></div>
+  <div class="score" id="scoreBox">当前得分：${score}</div>
+  <button class="btn" onclick="nextStage()">进入下一关</button>
+  `;
+  loadEmojiQuestion();
+}
+function loadEmojiQuestion(){
+  document.getElementById("emojiBox").innerText = questions[emojiIndex].emoji;
+  document.getElementById("answerInput").value = "";
+  document.getElementById("resultTip").innerText = "";
+}
+function checkAnswer(){
+  const userAns = document.getElementById("answerInput").value.trim();
+  const rightAns = questions[emojiIndex].ans;
+  const resultTip = document.getElementById("resultTip");
+  if(userAns === rightAns){
+    resultTip.innerText = "✅ 回答正确！";
+    resultTip.className = "result correct";
+    score += 10;
+  }else{
+    resultTip.innerText = "❌ 答案："+rightAns;
+    resultTip.className = "result wrong";
+  }
+  document.getElementById("scoreBox").innerText = "当前得分："+score;
+}
+function nextQuestion(){
+  emojiIndex = (emojiIndex+1) % questions.length;
+  loadEmojiQuestion();
+}
+
+// 选择题
+function renderQuiz(){
+  let qlist = stages[currentStage].list;
+  let q = qlist[quizIndex];
+  app.innerHTML = `
+  <div class="title">诗词知识测验</div>
+  <div class="level">第${currentStage+1}关｜选择题 ${quizIndex+1}/5</div>
+  <div class="question">${q.q}</div>
+  ${q.opts.map((t,i)=>`<div class="option" onclick="chkQuiz(${i})">${t}</div>`).join('')}
+  <div id="msg"></div>
+  <button class="btn hide" id="next" onclick="nextQuiz()">下一题</button>
+  `;
+}
+function chkQuiz(i){
+  let qlist = stages[currentStage].list;
+  let q = qlist[quizIndex];
+  let msg = document.getElementById("msg");
+  if(i === q.ans){
+    msg.className = "msg right";
+    msg.innerText = "✅ 正确！";
+  }else{
+    msg.className = "msg wrong";
+    msg.innerText = "❌ 再思考！";
+  }
+  document.getElementById("next").classList.remove("hide");
+}
+function nextQuiz(){
+  quizIndex++;
+  let qlist = stages[currentStage].list;
+  if(quizIndex >= qlist.length){
+    nextStage();
+  }else{
+    renderQuiz();
+  }
+}
+
+// 下一关
+function nextStage(){
+  currentStage++;
+  if(currentStage >= stages.length){
+    app.innerHTML = `
+    <div class="title">登岳阳楼·诗圣之路</div>
+    <div class="end">
+      <h2>🎉 终极通关！</h2>
+      <p>你已解锁：【诗圣·家国心】</p>
+      <button class="btn" onclick="location.reload()">重新挑战</button>
+    </div>
+    `;
+    return;
+  }
+  render();
+}
+
+showStart();
+</script>
+</body>
+</html>
